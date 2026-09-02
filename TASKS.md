@@ -6,7 +6,9 @@
 - [x] Faz 2 — Altyapı (VS Code, venv, git)
 - [x] Faz 3 — Ham veri (data/raw/)
 - [x] Faz 4 — Temizlik/staging (sets_clean.csv, is_analysis_ready flag)
-- [ ] Faz 5 — Zenginleştirme (inventory_parts + colors join, minifig sayısı)
+- [ ] Faz 5 — Zenginleştirme
+  - [x] Faz 5a — minifig_count (inventories + inventory_minifigs join, bkz. notebooks/03_add_minifig_count.ipynb)
+  - [ ] Faz 5b — Renk verisi (inventory_parts + colors join)
 - [ ] Faz 6 — Analiz-hazır tablolar (tema/yıl agregasyonları)
 
 ## Analiz bölümleri
