@@ -1,0 +1,27 @@
+# Virtual environment
+venv/
+.venv/
+
+# Raw data (large files, not tracked in repo)
+data/raw/*.zip
+data/raw/*.csv
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.Python
+build/
+dist/
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
