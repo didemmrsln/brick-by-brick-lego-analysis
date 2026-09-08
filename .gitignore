@@ -9,6 +9,7 @@ venv/
 data/raw/*.zip
 data/raw/*.csv
 data/raw/brickset/*.json
+data/raw/brickeconomy/
 
 # Harici (üçüncü parti) ham veri — yeniden indirilebilir, git'e girmez
 data/external/*.csv
