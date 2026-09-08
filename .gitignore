@@ -1,3 +1,6 @@
+# Secrets
+.env
+
 # Virtual environment
 venv/
 .venv/
@@ -5,6 +8,7 @@ venv/
 # Raw data (large files, not tracked in repo)
 data/raw/*.zip
 data/raw/*.csv
+data/raw/brickset/*.json
 
 # Jupyter
 .ipynb_checkpoints/
