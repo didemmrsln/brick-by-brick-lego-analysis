@@ -2,7 +2,8 @@
 
 **Son güncelleme: 2026-09-08** — Bölüm 1 (karmaşıklık trendi) tamamlandı,
 Bölüm 2 (fiyat regresyonu) için veri hazır ama modelleme henüz başlamadı,
-BrickEconomy çekimi ~81/2.200 tamamlandı (devam ediyor, ~30 günlük süreç).
+BrickEconomy çekimi 88/2.200 tamamlandı, bugünkü kota (90/100) doldu, yarın
+`21044-1`'den devam edecek (devam ediyor, ~24 gün kaldı).
 
 ## Veri akışı
 
@@ -44,5 +45,8 @@ flowchart TD
 - **Faz 3 (retired sonrası değer artışı, BrickEconomy):** Çekim sürüyor —
   günlük 100/dakikada 4 istek limiti nedeniyle resumable, kendi kendini
   günlük ~90 çağrıda durduran bir script ile ~30 güne yayılmış durumda.
-  Bugünkü ilerleme: ~81/2.200 set (+ ~800 minifig kotası, setler bitince
-  başlayacak).
+  Bugünkü ilerleme: 88/2.200 set (1 hatalı: `2000409-2`, HTTP 400 — muhtemelen
+  BrickEconomy'nin tanımadığı bir kod formatı, ayrıca incelenecek), kota
+  doldu, yarın kaldığı yerden devam edecek. Setler bitince ~800 minifig
+  aşaması başlayacak (`scripts/fetch_brickeconomy_daily.py` her gün aynı
+  komutla çalıştırılabilir).
