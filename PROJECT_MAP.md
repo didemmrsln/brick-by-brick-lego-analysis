@@ -24,7 +24,7 @@ flowchart TD
     E --> E2["Faz 3 (retired sonrası değer artışı) veri seti"]
 
     C -->|"inventory_parts + colors join — Faz 5b, notebook 07"| F
-    F["set_colors.csv<br/>18.018 analiz-hazır set (%99,05)"]
+    F["set_colors.csv (minifig renkleri dahil)<br/>18.185 analiz-hazır set (%99,97)"]
     F --> F2["Bölüm 3 (renk paleti evrimi)"]
 
     style E2 fill:#2a78d6,color:#fff
@@ -40,8 +40,9 @@ flowchart TD
   dokümante edildi (notebook 05, DATA_SOURCES.md) — modelleme henüz
   başlamadı.
 - **Bölüm 3 (renk paleti evrimi):** Henüz başlamadı — veri hazır (Faz 5b,
-  `set_colors.csv`). Not: minifig parçalarının renkleri dahil değil; minifigli
-  setlerin %86,6'sında renk sayısı bu yüzden düşük (medyan −2), bkz. notebook 07.
+  `set_colors.csv`, minifig renkleri dahil, tamamlandı). Erken sağlık kontrolü:
+  renk çeşitliliği set büyüklüğünden bağımsız olarak zamanla artıyor (Spearman
+  ρ = 0,48 genel; büyüklük dilimleri içinde 0,37 / 0,56 / 0,54), bkz. notebook 07.
 - **Bölüm 4 (tema ömrü/başarı):** Henüz başlamadı.
 - **Faz 3 (retired sonrası değer artışı, BrickEconomy):** Çekim sürüyor ve
   otomatik — launchd (`scripts/launchd/com.brickbybrick.fetch.plist`) her gün
