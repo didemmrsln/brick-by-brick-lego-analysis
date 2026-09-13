@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.brickbybrick.fetch</string>
+
+    <!--
+      ÖNEMLİ: Aşağıdaki iki satırı kendi bilgisayarınıza göre düzenleyin:
+      1) ProgramArguments içindeki python3 yolu (which python3 ile bulun,
+         eğer bir virtualenv kullanıyorsanız o venv'in python3'ünü verin)
+      2) fetch_brickeconomy_daily.py'nin tam yolu
+    -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/didemarslan/Downloads/brick_by_brick_data/venv/bin/python3</string>
+        <string>/Users/didemarslan/Downloads/brick_by_brick_data/scripts/fetch_brickeconomy_daily.py</string>
+    </array>
+
+    <!-- Her gün saat 10:00'da çalıştır. Bilgisayar o an kapalı/uykudaysa,
+         launchd bir sonraki açılışta/uyanışta kaçırılan görevi hemen çalıştırır
+         (RunAtLoad + StartCalendarInterval kombinasyonu bunu sağlar). -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>10</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Ajan yüklendiğinde (örn. launchctl load ile veya login sonrası) bir kez de
+         hemen çalışsın, böylece o günü kaçırmamış oluruz. Script kendi içinde
+         "bugün zaten çekildi mi" kontrolü yaptığı için güvenle tekrar tetiklenebilir. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Çalışma dizini: script içindeki göreli yolların (data/, logs/) doğru
+         çözülmesi için proje kök dizinini verin. -->
+    <key>WorkingDirectory</key>
+    <string>/Users/didemarslan/Downloads/brick_by_brick_data</string>
+
+    <!-- launchd'nin kendi stdout/stderr loglarını da ayrıca tutalım
+         (script zaten logs/brickeconomy_fetch.log yazıyor, bu launchd'nin
+         kendi sorunlarını -örn. python bulunamadı- yakalamak için ek güvence). -->
+    <key>StandardOutPath</key>
+    <string>/Users/didemarslan/Downloads/brick_by_brick_data/logs/launchd_stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/didemarslan/Downloads/brick_by_brick_data/logs/launchd_stderr.log</string>
+</dict>
+</plist>

@@ -40,6 +40,22 @@ def save_quota_state(state_path: Path, state: dict) -> None:
     state_path.write_text(json.dumps(state, indent=2))
 
 
+def load_skip_list(skip_path: Path | None) -> set[str]:
+    """Daha önce HTTP 400 almış (BrickEconomy'nin tanımadığı) kodlar."""
+    if skip_path is None or not skip_path.exists():
+        return set()
+    return set(json.loads(skip_path.read_text()))
+
+
+def add_to_skip_list(skip_path: Path | None, code: str) -> None:
+    if skip_path is None:
+        return
+    codes = load_skip_list(skip_path)
+    codes.add(code)
+    skip_path.parent.mkdir(parents=True, exist_ok=True)
+    skip_path.write_text(json.dumps(sorted(codes), indent=2))
+
+
 def _throttled_get(path: str, api_key: str, state_path: Path) -> tuple[dict | None, int, dict]:
     """Tek bir GET isteği atar; öncesinde günlük kota kontrolü yapar, sonrasında
     THROTTLE_SECONDS bekler. Kota aşılmışsa (None, -1, state) döner (istek
@@ -74,17 +90,20 @@ def fetch_sets_resumable(
     raw_dir: Path,
     state_path: Path,
     log=print,
+    skip_path: Path | None = None,
 ) -> dict:
     """Verilen set_num listesini sırayla çeker; her biri için
     raw_dir/{set_num}.json zaten varsa atlar (resumable). Günlük kota
-    dolarsa DURUR (kalanları ertesi güne bırakır)."""
+    dolarsa DURUR (kalanları ertesi güne bırakır). skip_path verilirse
+    HTTP 400 alan kodlar oraya yazılır ve sonraki çalıştırmalarda atlanır."""
     raw_dir.mkdir(parents=True, exist_ok=True)
     fetched, skipped_cached, failed = [], [], []
     stopped_at = None
+    skip = load_skip_list(skip_path)
 
     for set_num in set_nums:
         path = raw_dir / f"{set_num}.json"
-        if path.exists():
+        if path.exists() or set_num in skip:
             skipped_cached.append(set_num)
             continue
 
@@ -99,6 +118,8 @@ def fetch_sets_resumable(
         if body is None or status != 200:
             log(f"[{set_num}] HATA (HTTP {status}): {body}")
             failed.append(set_num)
+            if status == 400:
+                add_to_skip_list(skip_path, set_num)
             continue
 
         path.write_text(json.dumps(body, ensure_ascii=False, indent=2))
@@ -120,15 +141,17 @@ def fetch_minifigs_resumable(
     raw_dir: Path,
     state_path: Path,
     log=print,
+    skip_path: Path | None = None,
 ) -> dict:
     """fetch_sets_resumable ile aynı mantık, minifig endpoint'i için."""
     raw_dir.mkdir(parents=True, exist_ok=True)
     fetched, skipped_cached, failed = [], [], []
     stopped_at = None
+    skip = load_skip_list(skip_path)
 
     for minifig_number in minifig_numbers:
         path = raw_dir / f"{minifig_number}.json"
-        if path.exists():
+        if path.exists() or minifig_number in skip:
             skipped_cached.append(minifig_number)
             continue
 
@@ -143,6 +166,8 @@ def fetch_minifigs_resumable(
         if body is None or status != 200:
             log(f"[{minifig_number}] HATA (HTTP {status}): {body}")
             failed.append(minifig_number)
+            if status == 400:
+                add_to_skip_list(skip_path, minifig_number)
             continue
 
         path.write_text(json.dumps(body, ensure_ascii=False, indent=2))
