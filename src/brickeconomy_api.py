@@ -19,7 +19,7 @@ import requests
 
 BASE_URL = "https://www.brickeconomy.com/api/v1"
 THROTTLE_SECONDS = 15  # dakikada 4 istek sınırına uymak için
-DAILY_QUOTA_STOP_AT = 90  # gerçek limit 100 — güvenlik payı bırakıyoruz
+DAILY_QUOTA_STOP_AT = 100  # BrickEconomy Premium günlük limiti; 429 gelirse gün erken biter
 
 
 def _today_str() -> str:
@@ -115,6 +115,10 @@ def fetch_sets_resumable(
             break
 
         body, status, state = fetch_set(set_num, api_key, state_path)
+        if status == 429:
+            log(f"DURDURULDU: HTTP 429 (limit). '{set_num}' ve sonrası ertesi güne bırakıldı.")
+            stopped_at = set_num
+            break
         if body is None or status != 200:
             log(f"[{set_num}] HATA (HTTP {status}): {body}")
             failed.append(set_num)
@@ -163,6 +167,10 @@ def fetch_minifigs_resumable(
             break
 
         body, status, state = fetch_minifig(minifig_number, api_key, state_path)
+        if status == 429:
+            log(f"DURDURULDU: HTTP 429 (limit). '{minifig_number}' ve sonrası ertesi güne bırakıldı.")
+            stopped_at = minifig_number
+            break
         if body is None or status != 200:
             log(f"[{minifig_number}] HATA (HTTP {status}): {body}")
             failed.append(minifig_number)

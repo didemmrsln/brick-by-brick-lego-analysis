@@ -1,7 +1,7 @@
 """
 BrickEconomy günlük çekim driver'ı (Faz 5c/Faz 3).
 
-Çok günlük bir süreç: her çalıştırma, o günkü ~90 çağrılık güvenli payı
+Çok günlük bir süreç: her çalıştırma, o günkü 100 çağrılık kotayı
 kullanır, sonra kendiliğinden durur. Zaten önbellekte olan setler atlanır
 (resumable) — bu yüzden her gün aynı komutu tekrar çalıştırmak yeterli:
 
