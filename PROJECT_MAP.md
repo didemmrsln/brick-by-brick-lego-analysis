@@ -1,7 +1,7 @@
 # Proje Haritası
 
 **Son güncelleme: 2026-09-13** — Bölüm 1 (karmaşıklık trendi) tamamlandı,
-Bölüm 2 (fiyat regresyonu) için veri hazır ama modelleme henüz başlamadı.
+Bölüm 2 (fiyat regresyonu) EDA'sı tamamlandı (notebook 08), modelleme henüz başlamadı.
 BrickEconomy çekimi launchd ile otomatikleşti (günde 100 istek) ve hedef
 6.614 setin tamamına genişletildi: 187/2.200 set çekildi, üyelik ~13 Kasım
 2026'da bitiyor.
@@ -35,10 +35,13 @@ flowchart TD
 ## Bugün nerede kaldık
 
 - **Bölüm 1 (karmaşıklık trendi):** Tamamlandı.
-- **Bölüm 2 (fiyat regresyonu):** Veri seti hazır (Brickset, n=6.614) ama
-  eşleşme yanlılığı (2015 sonrasına ve büyük/flagship setlere yığılma)
-  dokümante edildi (notebook 05, DATA_SOURCES.md) — modelleme henüz
-  başlamadı.
+- **Bölüm 2 (fiyat regresyonu):** Veri seti hazır (Brickset, n=6.614; eşleşme
+  yanlılığı notebook 05 ve DATA_SOURCES.md'de). **EDA tamamlandı (notebook 08)**,
+  modelleme henüz başlamadı. Öne çıkanlar: hedef log(fiyat); en güçlü değişken
+  log(num_parts) (Spearman 0,85); n_unique_colors orta (0,64, VIF < 3); premium
+  primi büyük setlerde; minifig_count ve year zayıf. 2024–2025 test seti sayıca
+  yeterli (886) ama daha büyük setlere kaymış → önerilen bölme ≤2022 / 2023–2025
+  + genişleyen pencereli doğrulama.
 - **Bölüm 3 (renk paleti evrimi):** Henüz başlamadı — veri hazır (Faz 5b,
   `set_colors.csv`, minifig renkleri dahil, tamamlandı). Erken sağlık kontrolü:
   renk çeşitliliği set büyüklüğünden bağımsız olarak zamanla artıyor (Spearman
