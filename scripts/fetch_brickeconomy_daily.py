@@ -18,6 +18,7 @@ Sırasıyla:
      minifig kodları çıkarıp (~800 hedef) onları çeker
 """
 import json
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -93,4 +94,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        # Drive for Desktop kurulu değilse script sessizce atlar (logs/drive_backup.log)
+        subprocess.run(["/bin/zsh", str(PROJECT_ROOT / "scripts/backup_to_drive.sh")])
