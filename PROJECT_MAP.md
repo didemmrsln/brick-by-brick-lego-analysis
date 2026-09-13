@@ -41,7 +41,10 @@ flowchart TD
   log(num_parts) (Spearman 0,85); n_unique_colors orta (0,64, VIF < 3); premium
   primi büyük setlerde; minifig_count ve year zayıf. 2024–2025 test seti sayıca
   yeterli (886) ama daha büyük setlere kaymış → önerilen bölme ≤2022 / 2023–2025
-  + genişleyen pencereli doğrulama.
+  + genişleyen pencereli doğrulama. `theme_tier`'ın güncelliği sorgulandı (notebook
+  08 §8): Duplo setleri yanlış grupta, `other` değer hatlarıyla lisanslı temaları
+  karıştırıyor, Technic premium gibi fiyatlanmıyor. Kök temaya dayalı 5 kategorili
+  şema önerildi — **karar bekleniyor**, `theme_tier` henüz değiştirilmedi.
 - **Bölüm 3 (renk paleti evrimi):** Henüz başlamadı — veri hazır (Faz 5b,
   `set_colors.csv`, minifig renkleri dahil, tamamlandı). Erken sağlık kontrolü:
   renk çeşitliliği set büyüklüğünden bağımsız olarak zamanla artıyor (Spearman
