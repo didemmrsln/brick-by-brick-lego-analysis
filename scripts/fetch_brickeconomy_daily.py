@@ -12,10 +12,12 @@ ve login/yüklemede otomatik tetikler. Aynı gün tekrar tetiklenirse kota sayac
 (_quota_state.json) dolu olduğu için istek atmadan çıkar. Çıktı ayrıca
 logs/brickeconomy_fetch.log dosyasına zaman damgasıyla eklenir.
 
-Sırasıyla:
-  1) data/processed/brickeconomy_priority_sets.csv'deki 2.200 seti çeker
-  2) 2.200'ü bitince, çekilen setlerin "minifigs" alanlarından benzersiz
-     minifig kodları çıkarıp (~800 hedef) onları çeker
+Sırasıyla (bkz. notebooks/06_brickeconomy_priority_selection.ipynb, bölüm 5):
+  1) data/processed/brickeconomy_priority_sets.csv'deki sıra 1–2.200 setleri çeker
+  2) bu setlerin "minifigs" alanlarından benzersiz minifig kodlarını çıkarıp
+     (~800 hedef) onları çeker
+  3) sıra 2.201–6.614 setleri çeker (genişleme; üyelik bitince nerede kalırsa)
+Bir aşama gün ortasında biterse kalan kota aynı çalıştırmada sonraki aşamaya harcanır.
 """
 import json
 import subprocess
@@ -42,6 +44,7 @@ MINIFIGS_RAW_DIR = PROJECT_ROOT / "data/raw/brickeconomy/minifigs"
 STATE_PATH = PROJECT_ROOT / "data/raw/brickeconomy/_quota_state.json"
 SKIP_PATH = PROJECT_ROOT / "data/raw/brickeconomy/_skip_http400.json"  # BrickEconomy'nin tanımadığı kodlar
 LOG_PATH = PROJECT_ROOT / "logs/brickeconomy_fetch.log"
+PRIMARY_SET_COUNT = 2200  # ilk plan; minifigler bundan sonra, genişleme en sonda
 MINIFIG_TARGET = 800
 
 
@@ -53,6 +56,30 @@ def log(msg):
         f.write(line + "\n")
 
 
+def report(phase, result):
+    log(f"=== {phase} (bu çalıştırma) bitti — yeni: {len(result['fetched'])}, hatalı: {len(result['failed'])}, "
+        f"durdurulan: {result['stopped_at']}, bugünkü kullanım: {result['final_usage']}/100 ===")
+
+
+def pending(codes, raw_dir, skip):
+    return [c for c in codes if c not in skip and not (raw_dir / f"{c}.json").exists()]
+
+
+def minifig_codes_from(set_nums):
+    """Setlerin öncelik sırasına göre, yanıtlarındaki minifig kodları (tekrarsız)."""
+    codes, seen = [], set()
+    for set_num in set_nums:
+        path = SETS_RAW_DIR / f"{set_num}.json"
+        if not path.exists():
+            continue
+        body = json.loads(path.read_text())
+        for code in (body.get("data", {}) or {}).get("minifigs", []) or []:
+            if code not in seen:
+                seen.add(code)
+                codes.append(code)
+    return codes[:MINIFIG_TARGET]
+
+
 def main():
     state = load_quota_state(STATE_PATH)
     if state["count"] >= DAILY_QUOTA_STOP_AT:
@@ -60,37 +87,37 @@ def main():
         return
 
     priority = pd.read_csv(PROJECT_ROOT / "data/processed/brickeconomy_priority_sets.csv")
-    set_nums = priority["set_num"].tolist()
+    set_nums = priority.sort_values("priority_rank")["set_num"].tolist()
+    primary, extension = set_nums[:PRIMARY_SET_COUNT], set_nums[PRIMARY_SET_COUNT:]
+    skip = load_skip_list(SKIP_PATH)
 
-    cached_sets = len(list(SETS_RAW_DIR.glob("*.json"))) if SETS_RAW_DIR.exists() else 0
-    skipped = len(load_skip_list(SKIP_PATH) & set(set_nums))
-    log(f"Set aşaması: {cached_sets}/{len(set_nums)} zaten önbellekte, {skipped} HTTP 400 nedeniyle atlanıyor.")
+    # 1) sıra 1–2.200
+    todo = pending(primary, SETS_RAW_DIR, skip)
+    log(f"Aşama 1 (set 1–{PRIMARY_SET_COUNT}): {len(primary) - len(todo)}/{len(primary)} tamam.")
+    if todo:
+        result = fetch_sets_resumable(primary, api_key, SETS_RAW_DIR, STATE_PATH, log=log, skip_path=SKIP_PATH)
+        report("Aşama 1", result)
+        if result["stopped_at"]:
+            return
 
-    if cached_sets + skipped < len(set_nums):
-        result = fetch_sets_resumable(set_nums, api_key, SETS_RAW_DIR, STATE_PATH, log=log, skip_path=SKIP_PATH)
-        log("=== Set aşaması (bu çalıştırma) bitti ===")
-        log(f"Yeni çekilen: {len(result['fetched'])}, hatalı: {len(result['failed'])}, "
-            f"durdurulan: {result['stopped_at']}, bugünkü kullanım: {result['final_usage']}/100")
-        return  # aynı gün içinde minifig aşamasına geçme — yarın devam eder
+    # 2) minifigler
+    minifig_codes = minifig_codes_from(primary)
+    todo = pending(minifig_codes, MINIFIGS_RAW_DIR, load_skip_list(SKIP_PATH))
+    log(f"Aşama 2 (minifig): {len(minifig_codes) - len(todo)}/{len(minifig_codes)} tamam (hedef: {MINIFIG_TARGET}).")
+    if todo:
+        result = fetch_minifigs_resumable(minifig_codes, api_key, MINIFIGS_RAW_DIR, STATE_PATH, log=log, skip_path=SKIP_PATH)
+        report("Aşama 2", result)
+        if result["stopped_at"]:
+            return
 
-    log("Tüm setler tamam. Minifig aşamasına geçiliyor.")
-
-    # çekilen setlerin minifigs alanlarından benzersiz kod listesi çıkar
-    minifig_codes = []
-    seen = set()
-    for path in sorted(SETS_RAW_DIR.glob("*.json")):
-        body = json.loads(path.read_text())
-        for code in (body.get("data", {}) or {}).get("minifigs", []) or []:
-            if code not in seen:
-                seen.add(code)
-                minifig_codes.append(code)
-    minifig_codes = minifig_codes[:MINIFIG_TARGET]
-    log(f"Set yanıtlarından çıkarılan benzersiz minifig kodu: {len(minifig_codes)} (hedef: {MINIFIG_TARGET})")
-
-    result = fetch_minifigs_resumable(minifig_codes, api_key, MINIFIGS_RAW_DIR, STATE_PATH, log=log, skip_path=SKIP_PATH)
-    log("=== Minifig aşaması (bu çalıştırma) bitti ===")
-    log(f"Yeni çekilen: {len(result['fetched'])}, hatalı: {len(result['failed'])}, "
-        f"durdurulan: {result['stopped_at']}, bugünkü kullanım: {result['final_usage']}/100")
+    # 3) sıra 2.201+
+    todo = pending(extension, SETS_RAW_DIR, load_skip_list(SKIP_PATH))
+    log(f"Aşama 3 (set {PRIMARY_SET_COUNT + 1}–{len(set_nums)}): {len(extension) - len(todo)}/{len(extension)} tamam.")
+    if todo:
+        result = fetch_sets_resumable(extension, api_key, SETS_RAW_DIR, STATE_PATH, log=log, skip_path=SKIP_PATH)
+        report("Aşama 3", result)
+    else:
+        log("Tüm aşamalar tamamlandı — çekilecek bir şey kalmadı.")
 
 
 if __name__ == "__main__":

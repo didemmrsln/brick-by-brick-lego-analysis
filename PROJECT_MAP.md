@@ -1,9 +1,10 @@
 # Proje Haritası
 
-**Son güncelleme: 2026-09-08** — Bölüm 1 (karmaşıklık trendi) tamamlandı,
-Bölüm 2 (fiyat regresyonu) için veri hazır ama modelleme henüz başlamadı,
-BrickEconomy çekimi 88/2.200 tamamlandı, bugünkü kota (90/100) doldu, yarın
-`21044-1`'den devam edecek (devam ediyor, ~24 gün kaldı).
+**Son güncelleme: 2026-09-13** — Bölüm 1 (karmaşıklık trendi) tamamlandı,
+Bölüm 2 (fiyat regresyonu) için veri hazır ama modelleme henüz başlamadı.
+BrickEconomy çekimi launchd ile otomatikleşti (günde 100 istek) ve hedef
+6.614 setin tamamına genişletildi: 187/2.200 set çekildi, üyelik ~13 Kasım
+2026'da bitiyor.
 
 ## Veri akışı
 
@@ -18,8 +19,8 @@ flowchart TD
     C -->|"Brickset retail price join denendi — notebook 05"| D
     D["Brickset ile eşleşen<br/>6.614 set (%36,4)"]
     D --> D2["Bölüm 2 (fiyat regresyonu) ana veri seti"]
-    D -->|"üretim süresi + num_parts skoruna göre öncelikli 2.200 seçildi — notebook 06"| E
-    E["BrickEconomy'den zenginleştiriliyor<br/>(devam ediyor, ~30 gün)<br/>2.200 set + ~800 minifig"]
+    D -->|"üretim süresi + num_parts skoruna göre 6.614 set sıralandı — notebook 06"| E
+    E["BrickEconomy'den zenginleştiriliyor<br/>(devam ediyor, ~13 Kasım'a kadar)<br/>set 1–2.200 → ~800 minifig → set 2.201+"]
     E --> E2["Faz 3 (retired sonrası değer artışı) veri seti"]
 
     C -->|"inventory_parts + colors join — Faz 5b, HENÜZ YAPILMADI"| F
@@ -42,11 +43,17 @@ flowchart TD
 - **Bölüm 3 (renk paleti evrimi):** Henüz başlamadı — Faz 5b (inventory_parts
   + colors join) bekliyor.
 - **Bölüm 4 (tema ömrü/başarı):** Henüz başlamadı.
-- **Faz 3 (retired sonrası değer artışı, BrickEconomy):** Çekim sürüyor —
-  günlük 100/dakikada 4 istek limiti nedeniyle resumable, kendi kendini
-  günlük ~90 çağrıda durduran bir script ile ~30 güne yayılmış durumda.
-  Bugünkü ilerleme: 88/2.200 set (1 hatalı: `2000409-2`, HTTP 400 — muhtemelen
-  BrickEconomy'nin tanımadığı bir kod formatı, ayrıca incelenecek), kota
-  doldu, yarın kaldığı yerden devam edecek. Setler bitince ~800 minifig
-  aşaması başlayacak (`scripts/fetch_brickeconomy_daily.py` her gün aynı
-  komutla çalıştırılabilir).
+- **Faz 3 (retired sonrası değer artışı, BrickEconomy):** Çekim sürüyor ve
+  otomatik — launchd (`scripts/launchd/com.brickbybrick.fetch.plist`) her gün
+  10:00'da `scripts/fetch_brickeconomy_daily.py`'yi çalıştırıyor, günlük 100
+  istek kotasını kullanıyor, ardından projeyi Google Drive'a
+  (`brick_by_brick/proje_yedek`) yedekliyor. HTTP 400 alan kodlar
+  (`_skip_http400.json`, şu an sadece `2000409-2`) bir daha denenmiyor.
+  - **Plan (üyelik ~13 Kasım 2026'ya kadar, ~6.000 istek):** set 1–2.200
+    (~4 Ekim'e kadar) → ~800 minifig (~12 Ekim) → set 2.201–6.614 (üyelik
+    bitene kadar, ~3.200 set). Beklenen toplam: ~5.400 set + 800 minifig —
+    Mac kapalı geçen her gün ~100 set eksiltir.
+  - **Dikkat:** 2.200 sonrası setler seçim mantığı gereği farklı bir profil
+    taşıyor (medyan ~140 parça, medyan yıl 2016); analizlerde sıra dilimi
+    ayrı bir değişken olarak tutulmalı (notebook 06, bölüm 5).
+  - İlerleme: 187/2.200 set (2026-09-13).
