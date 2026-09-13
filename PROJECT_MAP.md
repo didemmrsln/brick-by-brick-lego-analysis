@@ -23,13 +23,12 @@ flowchart TD
     E["BrickEconomy'den zenginleştiriliyor<br/>(devam ediyor, ~13 Kasım'a kadar)<br/>set 1–2.200 → ~800 minifig → set 2.201+"]
     E --> E2["Faz 3 (retired sonrası değer artışı) veri seti"]
 
-    C -->|"inventory_parts + colors join — Faz 5b, HENÜZ YAPILMADI"| F
-    F["renk verisi (planlanan)"]
+    C -->|"inventory_parts + colors join — Faz 5b, notebook 07"| F
+    F["set_colors.csv<br/>18.018 analiz-hazır set (%99,05)"]
     F --> F2["Bölüm 3 (renk paleti evrimi)"]
 
     style E2 fill:#2a78d6,color:#fff
     style D2 fill:#2a78d6,color:#fff
-    style F fill:#eb6834,color:#fff
     style F2 fill:#eb6834,color:#fff
 ```
 
@@ -40,8 +39,9 @@ flowchart TD
   eşleşme yanlılığı (2015 sonrasına ve büyük/flagship setlere yığılma)
   dokümante edildi (notebook 05, DATA_SOURCES.md) — modelleme henüz
   başlamadı.
-- **Bölüm 3 (renk paleti evrimi):** Henüz başlamadı — Faz 5b (inventory_parts
-  + colors join) bekliyor.
+- **Bölüm 3 (renk paleti evrimi):** Henüz başlamadı — veri hazır (Faz 5b,
+  `set_colors.csv`). Not: minifig parçalarının renkleri dahil değil; minifigli
+  setlerin %86,6'sında renk sayısı bu yüzden düşük (medyan −2), bkz. notebook 07.
 - **Bölüm 4 (tema ömrü/başarı):** Henüz başlamadı.
 - **Faz 3 (retired sonrası değer artışı, BrickEconomy):** Çekim sürüyor ve
   otomatik — launchd (`scripts/launchd/com.brickbybrick.fetch.plist`) her gün
