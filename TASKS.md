@@ -28,3 +28,8 @@
 - [ ] `notebooks/03_add_minifig_count.ipynb` henüz `src/rebrickable.py`'deki ortak envanter eşleştirme
   fonksiyonuna (`latest_inventory()`) geçirilmedi. Notebook `sets_clean.csv`'yi yerinde güncellediği için
   tekrar çalıştırılırsa `minifig_count` çifte eklenir riski var. İleride düzeltilebilir, şu an acil değil.
+- [ ] `notebooks/04_complexity_trend.ipynb` (Bölüm 1) temaları `theme_name` ile grupluyor; 08 §8'de bulunan tema adı
+  tekilliği sorunundan kısmen etkilenmiş. `Technic` (4 `theme_id` birleşik, büyüme +667,5 yerine ana hat için +414)
+  ve `Town Plan` (+361 tamamen artefakt) yanlış; `Police`'in rakamı karışık ama "durağan" sonucu değişmiyor. UCS,
+  Architecture, Modular Buildings, LEGO Ideas, Creator Expert sağlam. Proje devam ettiğinde `theme_id` (veya kök tema)
+  bazlı yeniden hesaplanacak — `theme_tier` kararıyla birlikte ele alınmalı.

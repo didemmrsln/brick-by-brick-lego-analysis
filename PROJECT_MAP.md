@@ -64,3 +64,21 @@ flowchart TD
     taşıyor (medyan ~140 parça, medyan yıl 2016); analizlerde sıra dilimi
     ayrı bir değişken olarak tutulmalı (notebook 06, bölüm 5).
   - İlerleme: 187/2.200 set (2026-09-13).
+
+## Bilinen açık noktalar / sıradaki iş
+
+- **Bölüm 1 (notebook 04) tema kırılımı `theme_name` bazlı — tekillik sorunundan kısmen etkilenmiş**
+  (sorun notebook 08 §8'de bulundu; henüz düzeltilmedi, proje devam ettiğinde düzeltilecek). 04 hiç `theme_id`
+  kullanmıyor; aynı adı taşıyan farklı `theme_id`'ler birleşiyor (analiz-hazır sette 48 isim, 7.169 set; sıralamaya
+  giren 81 temanın 26'sı).
+  - **Sağlam:** premium listesinden UCS, Architecture, Modular Buildings, LEGO Ideas, Creator Expert tek `theme_id` —
+    büyüme rakamları doğru.
+  - **Etkilenen — `Technic`:** 4 `theme_id` birleşmiş (ana Technic + 2 `Service Packs` + `Educational and Dacta`).
+    İlk 5 yıl medyanı 4,5 parça yedek parça paketlerinden geliyor; ana Technic hattı (id 1) tek başına 1983–87'de
+    258 → 2021–25'te 672 parça, **fark +414** (raporlanan +667,5; §5'teki elle filtre +652). Hâlâ hızlı büyüyen bir
+    tema, ama büyüme ~%40 abartılmış — premium ataması için bir gerekçe daha zayıflıyor (bkz. 08 §8).
+  - **Etkilenen — `Town Plan`** (hızlı listede 8.): +361 tamamen birleştirme artefaktı; `theme_id` bazında iki
+    kayıt da pencere örtüşmesi nedeniyle sıralamaya hiç girmiyor.
+  - **Etkilenen ama sonuç değişmiyor — `Police`** (durağan listede): +6, 1972–77 Legoland Police ile 2021–25 City
+    Police'in karışımı; City Police tek başına 2005–09 → 2021–25 **−5**, yine durağan.
+  - `Ninjago`, `Friends`, `City` küçük alt temalarla birleşmiş, etkisi küçük (City −13 → ana hat +10).
