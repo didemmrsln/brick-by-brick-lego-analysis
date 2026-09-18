@@ -11,6 +11,11 @@ data/raw/*.csv
 data/raw/brickset/*.json
 data/raw/brickeconomy/
 
+# Üyelikle erişilen API'lerden (Brickset, BrickEconomy) türetilen tablolar —
+# kullanım koşulları gereği repoda paylaşılmaz, notebook'larla yerelde üretilir
+data/processed/brickset_prices.csv
+data/processed/brickeconomy_priority_sets.csv
+
 # Harici (üçüncü parti) ham veri — yeniden indirilebilir, git'e girmez
 data/external/*.csv
 

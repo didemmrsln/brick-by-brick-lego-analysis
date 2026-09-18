@@ -36,6 +36,19 @@ brick_by_brick_data/
 Ham veri (`data/raw/`) büyük olduğu ve yeniden üretilebilir olduğu için repoya dahil edilmiyor;
 `data/processed/` altındaki temizlenmiş tablolar ise tekrarlanabilirlik için repoya dahil ediliyor.
 
+**İstisna — Brickset ve BrickEconomy verileri:** Bu kaynaklar veriyi üyelik/API anahtarı ile
+sağlıyor ve kullanım koşulları yeniden dağıtıma izin vermiyor. Bu yüzden şu iki tablo repoda
+**yer almaz**; kendi API anahtarlarınızla (`.env` → `BRICKSET_API_KEY`, `BRICKECONOMY_API_KEY`)
+yerelde yeniden üretebilirsiniz:
+
+| Dosya | Nasıl üretilir |
+|---|---|
+| `data/processed/brickset_prices.csv` | `notebooks/05_fetch_brickset_prices.ipynb` |
+| `data/processed/brickeconomy_priority_sets.csv` | `notebooks/06_brickeconomy_priority_selection.ipynb` (05'in çıktısını kullanır) |
+
+BrickEconomy fiyat verisi `scripts/fetch_brickeconomy_daily.py` ile günlük olarak `data/raw/brickeconomy/`
+altına çekilir; o klasör de git'e girmez.
+
 ## Veri Kaynağı
 
 [Rebrickable](https://rebrickable.com/downloads/) — LEGO setleri, parçalar, envanterler,
