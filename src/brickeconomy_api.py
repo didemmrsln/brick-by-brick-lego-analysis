@@ -20,6 +20,8 @@ import requests
 BASE_URL = "https://www.brickeconomy.com/api/v1"
 THROTTLE_SECONDS = 15  # dakikada 4 istek sınırına uymak için
 DAILY_QUOTA_STOP_AT = 100  # BrickEconomy Premium günlük limiti; 429 gelirse gün erken biter
+NETWORK_RETRY_WAITS = (30, 60, 120)  # bağlantı koparsa bu kadar saniye bekleyip yeniden dene
+NETWORK_ERROR = -2  # tüm denemeler ağ hatasıyla bittiğinde dönen status
 
 
 def _today_str() -> str:
@@ -59,12 +61,24 @@ def add_to_skip_list(skip_path: Path | None, code: str) -> None:
 def _throttled_get(path: str, api_key: str, state_path: Path) -> tuple[dict | None, int, dict]:
     """Tek bir GET isteği atar; öncesinde günlük kota kontrolü yapar, sonrasında
     THROTTLE_SECONDS bekler. Kota aşılmışsa (None, -1, state) döner (istek
-    atmadan)."""
+    atmadan).
+
+    Bağlantı koparsa / zaman aşımına uğrarsa NETWORK_RETRY_WAITS kadar bekleyip
+    yeniden dener; hepsi başarısız olursa (None, NETWORK_ERROR, state) döner ve
+    çağıran taraf günü durdurur. Başarısız denemeler sayaca yazılmaz (sunucuya
+    ulaşmadılar); sayacımız geride kalırsa sunucu 429 döner ve gün yine düzgünce biter."""
     state = load_quota_state(state_path)
     if state["count"] >= DAILY_QUOTA_STOP_AT:
         return None, -1, state
 
-    resp = requests.get(f"{BASE_URL}{path}", headers={"x-apikey": api_key}, timeout=30)
+    for wait in (*NETWORK_RETRY_WAITS, None):
+        try:
+            resp = requests.get(f"{BASE_URL}{path}", headers={"x-apikey": api_key}, timeout=30)
+            break
+        except requests.RequestException:
+            if wait is None:
+                return None, NETWORK_ERROR, state
+            time.sleep(wait)
     state["count"] += 1
     save_quota_state(state_path, state)
     time.sleep(THROTTLE_SECONDS)
@@ -119,6 +133,10 @@ def fetch_sets_resumable(
             log(f"DURDURULDU: HTTP 429 (limit). '{set_num}' ve sonrası ertesi güne bırakıldı.")
             stopped_at = set_num
             break
+        if status == NETWORK_ERROR:
+            log(f"DURDURULDU: ağ hatası ({len(NETWORK_RETRY_WAITS) + 1} deneme başarısız). '{set_num}' ve sonrası ertesi güne bırakıldı.")
+            stopped_at = set_num
+            break
         if body is None or status != 200:
             log(f"[{set_num}] HATA (HTTP {status}): {body}")
             failed.append(set_num)
@@ -169,6 +187,10 @@ def fetch_minifigs_resumable(
         body, status, state = fetch_minifig(minifig_number, api_key, state_path)
         if status == 429:
             log(f"DURDURULDU: HTTP 429 (limit). '{minifig_number}' ve sonrası ertesi güne bırakıldı.")
+            stopped_at = minifig_number
+            break
+        if status == NETWORK_ERROR:
+            log(f"DURDURULDU: ağ hatası ({len(NETWORK_RETRY_WAITS) + 1} deneme başarısız). '{minifig_number}' ve sonrası ertesi güne bırakıldı.")
             stopped_at = minifig_number
             break
         if body is None or status != 200:
