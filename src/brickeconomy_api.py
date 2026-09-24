@@ -58,7 +58,7 @@ def add_to_skip_list(skip_path: Path | None, code: str) -> None:
     skip_path.write_text(json.dumps(sorted(codes), indent=2))
 
 
-def _throttled_get(path: str, api_key: str, state_path: Path) -> tuple[dict | None, int, dict]:
+def _throttled_get(path: str, api_key: str, state_path: Path, log=print) -> tuple[dict | None, int, dict]:
     """Tek bir GET isteği atar; öncesinde günlük kota kontrolü yapar, sonrasında
     THROTTLE_SECONDS bekler. Kota aşılmışsa (None, -1, state) döner (istek
     atmadan).
@@ -71,13 +71,15 @@ def _throttled_get(path: str, api_key: str, state_path: Path) -> tuple[dict | No
     if state["count"] >= DAILY_QUOTA_STOP_AT:
         return None, -1, state
 
-    for wait in (*NETWORK_RETRY_WAITS, None):
+    for attempt, wait in enumerate((*NETWORK_RETRY_WAITS, None), start=1):
         try:
             resp = requests.get(f"{BASE_URL}{path}", headers={"x-apikey": api_key}, timeout=30)
             break
-        except requests.RequestException:
+        except requests.RequestException as e:
             if wait is None:
+                log(f"[{path}] ağ hatası ({type(e).__name__}), {attempt}. deneme de başarısız — vazgeçiliyor.")
                 return None, NETWORK_ERROR, state
+            log(f"[{path}] ağ hatası ({type(e).__name__}), {wait} sn sonra yeniden deneniyor ({attempt}/{len(NETWORK_RETRY_WAITS)}).")
             time.sleep(wait)
     state["count"] += 1
     save_quota_state(state_path, state)
@@ -90,12 +92,12 @@ def _throttled_get(path: str, api_key: str, state_path: Path) -> tuple[dict | No
     return body, resp.status_code, state
 
 
-def fetch_set(set_num: str, api_key: str, state_path: Path) -> tuple[dict | None, int, dict]:
-    return _throttled_get(f"/set/{set_num}", api_key, state_path)
+def fetch_set(set_num: str, api_key: str, state_path: Path, log=print) -> tuple[dict | None, int, dict]:
+    return _throttled_get(f"/set/{set_num}", api_key, state_path, log=log)
 
 
-def fetch_minifig(minifig_number: str, api_key: str, state_path: Path) -> tuple[dict | None, int, dict]:
-    return _throttled_get(f"/minifig/{minifig_number}", api_key, state_path)
+def fetch_minifig(minifig_number: str, api_key: str, state_path: Path, log=print) -> tuple[dict | None, int, dict]:
+    return _throttled_get(f"/minifig/{minifig_number}", api_key, state_path, log=log)
 
 
 def fetch_sets_resumable(
@@ -128,7 +130,7 @@ def fetch_sets_resumable(
             stopped_at = set_num
             break
 
-        body, status, state = fetch_set(set_num, api_key, state_path)
+        body, status, state = fetch_set(set_num, api_key, state_path, log=log)
         if status == 429:
             log(f"DURDURULDU: HTTP 429 (limit). '{set_num}' ve sonrası ertesi güne bırakıldı.")
             stopped_at = set_num
@@ -184,7 +186,7 @@ def fetch_minifigs_resumable(
             stopped_at = minifig_number
             break
 
-        body, status, state = fetch_minifig(minifig_number, api_key, state_path)
+        body, status, state = fetch_minifig(minifig_number, api_key, state_path, log=log)
         if status == 429:
             log(f"DURDURULDU: HTTP 429 (limit). '{minifig_number}' ve sonrası ertesi güne bırakıldı.")
             stopped_at = minifig_number

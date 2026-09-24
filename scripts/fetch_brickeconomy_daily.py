@@ -121,6 +121,10 @@ def main():
 
 
 if __name__ == "__main__":
+    # Çekim + yedek süresince Mac'in uykuya geçmesini engelle (caffeinate bu süreç bitince kendiliğinden kapanır).
+    # -i: boşta uyku, -s: sistem uykusu (yalnızca prize takılıyken geçerli). Kapak kapalı ve pildeyken macOS
+    # yine uyuyabilir; o durumda ağ hatası yeniden denemesi devreye girer.
+    subprocess.Popen(["/usr/bin/caffeinate", "-i", "-s", "-w", str(os.getpid())])
     try:
         main()
     finally:
