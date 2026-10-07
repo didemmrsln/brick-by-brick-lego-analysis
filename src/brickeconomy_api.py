@@ -22,6 +22,9 @@ THROTTLE_SECONDS = 15  # dakikada 4 istek sınırına uymak için
 DAILY_QUOTA_STOP_AT = 100  # BrickEconomy Premium günlük limiti; 429 gelirse gün erken biter
 NETWORK_RETRY_WAITS = (30, 60, 120)  # bağlantı koparsa bu kadar saniye bekleyip yeniden dene
 NETWORK_ERROR = -2  # tüm denemeler ağ hatasıyla bittiğinde dönen status
+AUTH_STATUSES = (401, 402, 403)  # anahtar reddedildi — üyelik bitmiş/iptal olmuş olabilir
+EARLY_429_BELOW = 90  # 429 bu sayıdan önce gelirse günlük limit düşmüş demektir (üyelik seviyesi?)
+MAX_CONSECUTIVE_FAILURES = 3  # 3.000+ istekte tek hata görüldü; art arda 3 hata tesadüf değil
 
 
 def _today_str() -> str:
@@ -56,6 +59,13 @@ def add_to_skip_list(skip_path: Path | None, code: str) -> None:
     codes.add(code)
     skip_path.parent.mkdir(parents=True, exist_ok=True)
     skip_path.write_text(json.dumps(sorted(codes), indent=2))
+
+
+def remove_from_skip_list(skip_path: Path | None, codes: list[str]) -> None:
+    if skip_path is None or not codes:
+        return
+    remaining = load_skip_list(skip_path) - set(codes)
+    skip_path.write_text(json.dumps(sorted(remaining), indent=2))
 
 
 def _throttled_get(path: str, api_key: str, state_path: Path, log=print) -> tuple[dict | None, int, dict]:
@@ -100,116 +110,89 @@ def fetch_minifig(minifig_number: str, api_key: str, state_path: Path, log=print
     return _throttled_get(f"/minifig/{minifig_number}", api_key, state_path, log=log)
 
 
-def fetch_sets_resumable(
-    set_nums: list[str],
-    api_key: str,
-    raw_dir: Path,
-    state_path: Path,
-    log=print,
-    skip_path: Path | None = None,
-) -> dict:
-    """Verilen set_num listesini sırayla çeker; her biri için
-    raw_dir/{set_num}.json zaten varsa atlar (resumable). Günlük kota
-    dolarsa DURUR (kalanları ertesi güne bırakır). skip_path verilirse
-    HTTP 400 alan kodlar oraya yazılır ve sonraki çalıştırmalarda atlanır."""
+def _fetch_resumable(codes: list[str], fetch_one, api_key: str, raw_dir: Path, state_path: Path,
+                     log=print, skip_path: Path | None = None) -> dict:
+    """Verilen kod listesini sırayla çeker; raw_dir/{kod}.json zaten varsa atlar (resumable).
+    Günlük kota dolarsa, 429 gelirse ya da ağ tamamen koparsa DURUR (kalanları ertesi güne bırakır).
+    skip_path verilirse HTTP 400 alan kodlar oraya yazılır ve sonraki çalıştırmalarda atlanır.
+
+    Sonuçtaki "alert" doluysa çekim, üyelik/yetki sorununa işaret eden bir nedenle durdurulmuştur
+    (bkz. AUTH_STATUSES, EARLY_429_BELOW, MAX_CONSECUTIVE_FAILURES) — çağıran taraf kullanıcıyı uyarmalı."""
     raw_dir.mkdir(parents=True, exist_ok=True)
     fetched, skipped_cached, failed = [], [], []
-    stopped_at = None
+    stopped_at = alert = None
     skip = load_skip_list(skip_path)
+    streak, streak_skipped = [], []  # art arda başarısız istekler / bu seride skip listesine eklenenler
 
-    for set_num in set_nums:
-        path = raw_dir / f"{set_num}.json"
-        if path.exists() or set_num in skip:
-            skipped_cached.append(set_num)
+    for code in codes:
+        path = raw_dir / f"{code}.json"
+        if path.exists() or code in skip:
+            skipped_cached.append(code)
             continue
 
         state = load_quota_state(state_path)
         if state["count"] >= DAILY_QUOTA_STOP_AT:
             log(f"DURDURULDU: günlük kullanım {state['count']} >= {DAILY_QUOTA_STOP_AT}. "
-                f"'{set_num}' ve sonrası ertesi güne bırakıldı.")
-            stopped_at = set_num
+                f"'{code}' ve sonrası ertesi güne bırakıldı.")
+            stopped_at = code
             break
 
-        body, status, state = fetch_set(set_num, api_key, state_path, log=log)
+        body, status, state = fetch_one(code, api_key, state_path, log=log)
         if status == 429:
-            log(f"DURDURULDU: HTTP 429 (limit). '{set_num}' ve sonrası ertesi güne bırakıldı.")
-            stopped_at = set_num
+            log(f"DURDURULDU: HTTP 429 (limit). '{code}' ve sonrası ertesi güne bırakıldı.")
+            if state["count"] < EARLY_429_BELOW:
+                alert = (f"HTTP 429 (limit aşıldı) günün {state['count']}. isteğinde geldi; normalde ~100. istekte gelir. "
+                         "Günlük limit düşmüş — üyelik bitmiş ya da seviyesi değişmiş olabilir.")
+            stopped_at = code
             break
         if status == NETWORK_ERROR:
-            log(f"DURDURULDU: ağ hatası ({len(NETWORK_RETRY_WAITS) + 1} deneme başarısız). '{set_num}' ve sonrası ertesi güne bırakıldı.")
-            stopped_at = set_num
+            log(f"DURDURULDU: ağ hatası ({len(NETWORK_RETRY_WAITS) + 1} deneme başarısız). '{code}' ve sonrası ertesi güne bırakıldı.")
+            stopped_at = code
             break
-        if body is None or status != 200:
-            log(f"[{set_num}] HATA (HTTP {status}): {body}")
-            failed.append(set_num)
+        if status in AUTH_STATUSES:
+            log(f"DURDURULDU: HTTP {status} — API anahtarı reddedildi. Yanıt: {str(body)[:200]}")
+            alert = f"BrickEconomy API anahtarı reddetti (HTTP {status}). Üyelik bitmiş ya da anahtar geçersiz olabilir."
+            stopped_at = code
+            break
+
+        ok = status == 200 and isinstance(body, dict) and "data" in body
+        if not ok:
+            log(f"[{code}] HATA (HTTP {status}): {str(body)[:200]}")
+            failed.append(code)
+            streak.append(f"{code}: HTTP {status}")
             if status == 400:
-                add_to_skip_list(skip_path, set_num)
+                add_to_skip_list(skip_path, code)
+                streak_skipped.append(code)
+            if len(streak) >= MAX_CONSECUTIVE_FAILURES:
+                # Bu kadar art arda hata "tanınmayan kod" değil, hesap/servis sorunu: skip eklemelerini geri al
+                remove_from_skip_list(skip_path, streak_skipped)
+                log(f"DURDURULDU: art arda {len(streak)} istek başarısız ({'; '.join(streak)}).")
+                alert = (f"Art arda {len(streak)} istek başarısız oldu ({'; '.join(streak)}). "
+                         "Üyelik bitmiş ya da BrickEconomy tarafında bir sorun olabilir.")
+                stopped_at = code
+                break
             continue
 
+        streak, streak_skipped = [], []
         path.write_text(json.dumps(body, ensure_ascii=False, indent=2))
-        fetched.append(set_num)
-        log(f"[{set_num}] kaydedildi (bugünkü kullanım: {state['count']}/100)")
+        fetched.append(code)
+        log(f"[{code}] kaydedildi (bugünkü kullanım: {state['count']}/100)")
 
     return {
         "fetched": fetched,
         "skipped_cached": skipped_cached,
         "failed": failed,
         "stopped_at": stopped_at,
+        "alert": alert,
         "final_usage": load_quota_state(state_path)["count"],
     }
 
 
-def fetch_minifigs_resumable(
-    minifig_numbers: list[str],
-    api_key: str,
-    raw_dir: Path,
-    state_path: Path,
-    log=print,
-    skip_path: Path | None = None,
-) -> dict:
-    """fetch_sets_resumable ile aynı mantık, minifig endpoint'i için."""
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    fetched, skipped_cached, failed = [], [], []
-    stopped_at = None
-    skip = load_skip_list(skip_path)
+def fetch_sets_resumable(set_nums: list[str], api_key: str, raw_dir: Path, state_path: Path,
+                         log=print, skip_path: Path | None = None) -> dict:
+    return _fetch_resumable(set_nums, fetch_set, api_key, raw_dir, state_path, log=log, skip_path=skip_path)
 
-    for minifig_number in minifig_numbers:
-        path = raw_dir / f"{minifig_number}.json"
-        if path.exists() or minifig_number in skip:
-            skipped_cached.append(minifig_number)
-            continue
 
-        state = load_quota_state(state_path)
-        if state["count"] >= DAILY_QUOTA_STOP_AT:
-            log(f"DURDURULDU: günlük kullanım {state['count']} >= {DAILY_QUOTA_STOP_AT}. "
-                f"'{minifig_number}' ve sonrası ertesi güne bırakıldı.")
-            stopped_at = minifig_number
-            break
-
-        body, status, state = fetch_minifig(minifig_number, api_key, state_path, log=log)
-        if status == 429:
-            log(f"DURDURULDU: HTTP 429 (limit). '{minifig_number}' ve sonrası ertesi güne bırakıldı.")
-            stopped_at = minifig_number
-            break
-        if status == NETWORK_ERROR:
-            log(f"DURDURULDU: ağ hatası ({len(NETWORK_RETRY_WAITS) + 1} deneme başarısız). '{minifig_number}' ve sonrası ertesi güne bırakıldı.")
-            stopped_at = minifig_number
-            break
-        if body is None or status != 200:
-            log(f"[{minifig_number}] HATA (HTTP {status}): {body}")
-            failed.append(minifig_number)
-            if status == 400:
-                add_to_skip_list(skip_path, minifig_number)
-            continue
-
-        path.write_text(json.dumps(body, ensure_ascii=False, indent=2))
-        fetched.append(minifig_number)
-        log(f"[{minifig_number}] kaydedildi (bugünkü kullanım: {state['count']}/100)")
-
-    return {
-        "fetched": fetched,
-        "skipped_cached": skipped_cached,
-        "failed": failed,
-        "stopped_at": stopped_at,
-        "final_usage": load_quota_state(state_path)["count"],
-    }
+def fetch_minifigs_resumable(minifig_numbers: list[str], api_key: str, raw_dir: Path, state_path: Path,
+                             log=print, skip_path: Path | None = None) -> dict:
+    return _fetch_resumable(minifig_numbers, fetch_minifig, api_key, raw_dir, state_path, log=log, skip_path=skip_path)

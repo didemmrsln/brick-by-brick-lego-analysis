@@ -44,6 +44,7 @@ MINIFIGS_RAW_DIR = PROJECT_ROOT / "data/raw/brickeconomy/minifigs"
 STATE_PATH = PROJECT_ROOT / "data/raw/brickeconomy/_quota_state.json"
 SKIP_PATH = PROJECT_ROOT / "data/raw/brickeconomy/_skip_http400.json"  # BrickEconomy'nin tanımadığı kodlar
 LOG_PATH = PROJECT_ROOT / "logs/brickeconomy_fetch.log"
+ALERT_PATH = PROJECT_ROOT / "logs/ALERT_brickeconomy.txt"  # varsa: çekim üyelik/yetki sorunuyla durdu, e-posta görevi bunu okur
 PRIMARY_SET_COUNT = 2200  # ilk plan; minifigler bundan sonra, genişleme en sonda
 MINIFIG_TARGET = 800
 
@@ -54,6 +55,34 @@ def log(msg):
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with LOG_PATH.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
+
+
+def raise_alert(reason):
+    """Çekim üyelik/yetki sorunuyla durduğunda: logla, uyarı dosyası yaz, ekranda bildirim + kalıcı uyarı penceresi aç.
+    Uyarı dosyasını günlük zamanlanmış görev okuyup e-posta gönderir."""
+    log(f"UYARI: {reason}")
+    ALERT_PATH.write_text(
+        f"{datetime.now():%Y-%m-%d %H:%M:%S}\n{reason}\n\n"
+        "Yapılacak: brickeconomy.com hesabına girip Premium üyeliği / API anahtarını kontrol et. "
+        "Yenilendikten sonra çekim ertesi gün 10:00'da kendiliğinden devam eder (ya da: launchctl start com.brickbybrick.fetch).\n",
+        encoding="utf-8",
+    )
+    title = "BrickEconomy veri çekimi durdu"
+    text = reason.replace('"', "'") + " Hesabını kontrol et: brickeconomy.com"
+    subprocess.run(["/usr/bin/osascript", "-e", f'display notification "{text}" with title "{title}" sound name "Basso"'])
+    # Pencere kapatılana kadar ekranda kalır; script'i bekletmemek için arka planda açılır
+    subprocess.Popen(["/usr/bin/osascript", "-e", f'display alert "{title}" message "{text}" as critical buttons {{"Tamam"}}'])
+
+
+def finish_phase(phase, result):
+    """Aşama raporu + uyarı yönetimi. True dönerse çalıştırma burada bitmeli."""
+    report(phase, result)
+    if result["alert"]:
+        raise_alert(result["alert"])
+    elif result["fetched"] and ALERT_PATH.exists():
+        ALERT_PATH.unlink()  # sorun çözülmüş: veri yeniden geliyor
+        log("Önceki uyarı temizlendi — çekim yeniden çalışıyor.")
+    return bool(result["stopped_at"])
 
 
 def report(phase, result):
@@ -96,8 +125,7 @@ def main():
     log(f"Aşama 1 (set 1–{PRIMARY_SET_COUNT}): {len(primary) - len(todo)}/{len(primary)} tamam.")
     if todo:
         result = fetch_sets_resumable(primary, api_key, SETS_RAW_DIR, STATE_PATH, log=log, skip_path=SKIP_PATH)
-        report("Aşama 1", result)
-        if result["stopped_at"]:
+        if finish_phase("Aşama 1", result):
             return
 
     # 2) minifigler
@@ -106,8 +134,7 @@ def main():
     log(f"Aşama 2 (minifig): {len(minifig_codes) - len(todo)}/{len(minifig_codes)} tamam (hedef: {MINIFIG_TARGET}).")
     if todo:
         result = fetch_minifigs_resumable(minifig_codes, api_key, MINIFIGS_RAW_DIR, STATE_PATH, log=log, skip_path=SKIP_PATH)
-        report("Aşama 2", result)
-        if result["stopped_at"]:
+        if finish_phase("Aşama 2", result):
             return
 
     # 3) sıra 2.201+
@@ -115,7 +142,7 @@ def main():
     log(f"Aşama 3 (set {PRIMARY_SET_COUNT + 1}–{len(set_nums)}): {len(extension) - len(todo)}/{len(extension)} tamam.")
     if todo:
         result = fetch_sets_resumable(extension, api_key, SETS_RAW_DIR, STATE_PATH, log=log, skip_path=SKIP_PATH)
-        report("Aşama 3", result)
+        finish_phase("Aşama 3", result)
     else:
         log("Tüm aşamalar tamamlandı — çekilecek bir şey kalmadı.")
 

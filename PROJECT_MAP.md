@@ -56,6 +56,9 @@ flowchart TD
   istek kotasını kullanıyor, ardından projeyi Google Drive'a
   (`brick_by_brick/proje_yedek`) yedekliyor. HTTP 400 alan kodlar
   (`_skip_http400.json`, şu an sadece `2000409-2`) bir daha denenmiyor.
+  - **Üyelik/yetki uyarısı:** HTTP 401/402/403, günün 90. isteğinden önce gelen 429 ya da art arda 3 başarısız
+    istek çekimi durdurur, `logs/ALERT_brickeconomy.txt` yazar ve ekranda uyarı penceresi açar. Uygulamadaki
+    `brickeconomy-membership-alert` zamanlanmış görevi her gün 12:30'da bu dosyaya bakıp e-posta gönderir.
   - **Plan (üyelik ~13 Kasım 2026'ya kadar, ~6.000 istek):** set 1–2.200
     (~4 Ekim'e kadar) → ~800 minifig (~12 Ekim) → set 2.201–6.614 (üyelik
     bitene kadar, ~3.200 set). Beklenen toplam: ~5.400 set + 800 minifig —
