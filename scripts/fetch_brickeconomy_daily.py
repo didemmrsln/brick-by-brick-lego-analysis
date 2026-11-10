@@ -16,13 +16,16 @@ Sırasıyla (bkz. notebooks/06_brickeconomy_priority_selection.ipynb, bölüm 5)
   1) data/processed/brickeconomy_priority_sets.csv'deki sıra 1–2.200 setleri çeker
   2) bu setlerin "minifigs" alanlarından benzersiz minifig kodlarını çıkarıp
      (~800 hedef) onları çeker
-  3) sıra 2.201–6.614 setleri çeker (genişleme; üyelik bitince nerede kalırsa)
+  3) sıra 2.201–6.614 setleri çeker (genişleme)
+  4) Brickset'te fiyatı olmayan setleri çeker — data/processed/brickeconomy_unpriced_sets.csv
+     (notebook 06, bölüm 6: önce 2005–2014, sonra 1990–2004, ≥50 parça)
+LAST_FETCH_DATE'ten sonra hiç istek atmaz (üyelik 8 Aralık 2026'da bitiyor, 7 Aralık'ta iptal edilecek).
 Bir aşama gün ortasında biterse kalan kota aynı çalıştırmada sonraki aşamaya harcanır.
 """
 import json
 import subprocess
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -46,6 +49,8 @@ SKIP_PATH = PROJECT_ROOT / "data/raw/brickeconomy/_skip_http400.json"  # BrickEc
 LOG_PATH = PROJECT_ROOT / "logs/brickeconomy_fetch.log"
 ALERT_PATH = PROJECT_ROOT / "logs/ALERT_brickeconomy.txt"  # varsa: çekim üyelik/yetki sorunuyla durdu, e-posta görevi bunu okur
 PRIMARY_SET_COUNT = 2200  # ilk plan; minifigler bundan sonra, genişleme en sonda
+UNPRICED_PATH = PROJECT_ROOT / "data/processed/brickeconomy_unpriced_sets.csv"
+LAST_FETCH_DATE = date(2026, 12, 7)  # son çekim günü (yerel saat); sonrasında script istek atmadan çıkar
 MINIFIG_TARGET = 800
 
 
@@ -109,7 +114,22 @@ def minifig_codes_from(set_nums):
     return codes[:MINIFIG_TARGET]
 
 
+def retail_coverage(set_nums):
+    """Önbellekteki setlerden kaçında BrickEconomy retail_price_us dolu — (dolu, toplam)."""
+    have = total = 0
+    for set_num in set_nums:
+        path = SETS_RAW_DIR / f"{set_num}.json"
+        if path.exists():
+            total += 1
+            have += (json.loads(path.read_text()).get("data") or {}).get("retail_price_us") is not None
+    return have, total
+
+
 def main():
+    if date.today() > LAST_FETCH_DATE:
+        log(f"Çekim dönemi {LAST_FETCH_DATE:%d.%m.%Y} itibarıyla bitti — istek atılmadan çıkılıyor.")
+        return
+
     state = load_quota_state(STATE_PATH)
     if state["count"] >= DAILY_QUOTA_STOP_AT:
         log(f"Bugünkü kota zaten dolu ({state['date']} UTC, {state['count']}/100) — istek atılmadan çıkılıyor.")
@@ -142,7 +162,19 @@ def main():
     log(f"Aşama 3 (set {PRIMARY_SET_COUNT + 1}–{len(set_nums)}): {len(extension) - len(todo)}/{len(extension)} tamam.")
     if todo:
         result = fetch_sets_resumable(extension, api_key, SETS_RAW_DIR, STATE_PATH, log=log, skip_path=SKIP_PATH)
-        finish_phase("Aşama 3", result)
+        if finish_phase("Aşama 3", result):
+            return
+
+    # 4) Brickset'te fiyatı olmayan setler
+    unpriced = pd.read_csv(UNPRICED_PATH).sort_values("unpriced_rank")["set_num"].tolist()
+    todo = pending(unpriced, SETS_RAW_DIR, load_skip_list(SKIP_PATH))
+    log(f"Aşama 4 (Brickset fiyatı olmayan setler): {len(unpriced) - len(todo)}/{len(unpriced)} tamam.")
+    if todo:
+        result = fetch_sets_resumable(unpriced, api_key, SETS_RAW_DIR, STATE_PATH, log=log, skip_path=SKIP_PATH)
+        finish_phase("Aşama 4", result)
+        have, total = retail_coverage(unpriced)
+        if total:
+            log(f"Aşama 4 fiyat doluluğu: {have}/{total} sette retail_price_us var (%{have / total * 100:.0f}).")
     else:
         log("Tüm aşamalar tamamlandı — çekilecek bir şey kalmadı.")
 

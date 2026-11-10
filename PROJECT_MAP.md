@@ -66,7 +66,14 @@ flowchart TD
   - **Dikkat:** 2.200 sonrası setler seçim mantığı gereği farklı bir profil
     taşıyor (medyan ~140 parça, medyan yıl 2016); analizlerde sıra dilimi
     ayrı bir değişken olarak tutulmalı (notebook 06, bölüm 5).
-  - İlerleme: 187/2.200 set (2026-09-13).
+  - **Güncel plan (2026-11-10):** Üyelik 8 Aralık 2026'ya kadar uzadı. Sıra 2.201–6.614 ~26 Kasım'da biter;
+    kalan ~1.100 istek **Aşama 4**'e gider: Brickset'te fiyatı olmayan setler
+    (`data/processed/brickeconomy_unpriced_sets.csv`, notebook 06 bölüm 6 — önce 2005–2014, sonra 1990–2004,
+    ≥50 parça). Amaç Bölüm 2'nin fiyat verisini Brickset eşleşme yanlılığının ötesine genişletmek; BrickEconomy
+    `retail_price_us` Brickset ile %97,2 birebir aynı. Script her gün bu aşamanın fiyat doluluk oranını loglar.
+  - **Son çekim günü 7 Aralık 2026** (`LAST_FETCH_DATE`); 8 Aralık'tan itibaren istek atılmaz. 7 Aralık 10:45'te
+    üyelik iptali için e-posta + bildirim hatırlatması (`brickeconomy-cancel-reminder` zamanlanmış görevi).
+  - İlerleme (2026-11-10): 5.080 set + 800 minifig. Asıl hedef (2.200 + 800) 13 Ekim'de tamamlandı.
 
 ## Bilinen açık noktalar / sıradaki iş
 
